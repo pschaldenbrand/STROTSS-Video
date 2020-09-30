@@ -1,6 +1,6 @@
 # STROTSS Video
 
-###Video style transfer using Style Transfer by Relaxed Optimal Transport and Self-Similarity (STROTSS)
+### Video style transfer using Style Transfer by Relaxed Optimal Transport and Self-Similarity (STROTSS)
 
 Each frame of the content video is styled by the given style image.  strotss.py produces a directory with each styled frame as well as the original frame.  The script requires ffmpeg to stitch the images into a video.
 

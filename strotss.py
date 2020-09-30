@@ -8,6 +8,7 @@ import numpy as np
 import os
 import math
 import PIL
+import cv2
 from time import time
 from argparse import ArgumentParser
 
@@ -116,6 +117,28 @@ def np_to_tensor_correct(npy):
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     return transform(pil).unsqueeze(0)
+
+def get_frames(content_video_fn, animation_fps=10):
+    ''' Given video file name, return list of PIL images '''
+    import cv2
+    video = cv2.VideoCapture(content_video_fn)
+
+    fps = video.get(cv2.CAP_PROP_FPS)
+
+    frame_skip = fps // animation_fps
+
+    frames, i = [], 0
+    success, image = video.read()
+
+    while success:
+        if i % frame_skip == 0:
+            image_RGB = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image_pil = PIL.Image.fromarray(image_RGB)
+            frames.append(image_pil)
+        i += 1
+        success, image = video.read()
+
+    return frames
 
 # Laplacian Pyramid
 
@@ -426,7 +449,8 @@ if __name__ == "__main__":
     parser.add_argument("content", type=str)
     parser.add_argument("style", type=str)
     parser.add_argument("--weight", type=float, default=1.0)
-    parser.add_argument("--output", type=str, default="strotss.png")
+    parser.add_argument("--output", type=str, default="strotss_animation")
+    parser.add_argument("--animation_fps", type=int, default=10)
     parser.add_argument("--device", type=str, default="cuda:0")
     # uniform ospace = optimization done in [-1, 1], else imagenet normalized space
     parser.add_argument("--ospace", type=str, default="uniform", choices=["uniform", "vgg"])
@@ -438,13 +462,28 @@ if __name__ == "__main__":
         print("Resulution too low.")
         exit(1)
 
-    content_pil, style_pil = pil_loader(args.content), pil_loader(args.style)
+    if not os.path.exists(args.output): os.mkdir(args.output)
+
+    content_pils = get_frames(args.content, animation_fps=args.animation_fps)
+    style_pil = pil_loader(args.style)
     content_weight = args.weight * 16.0
+    device, img_id = args.device, 0
 
-    device = args.device
+    for content_pil in content_pils:
+        start = time()
+        content_pil.save(os.path.join(args.output, 'original_' + str(img_id) + '.png'))
+        result = strotss(pil_resize_long_edge_to(content_pil, args.resize_to),
+                         pil_resize_long_edge_to(style_pil, args.resize_to),
+                         content_weight, device, args.ospace)
+        result.save(os.path.join(args.output, 'strotss_' + str(img_id) + '.png'))
+        print(f'Frame {img_id} done in {time()-start:.3f}s')
+        img_id += 1
 
-    start = time()
-    result = strotss(pil_resize_long_edge_to(content_pil, args.resize_to), 
-                     pil_resize_long_edge_to(style_pil, args.resize_to), content_weight, device, args.ospace)
-    result.save(args.output)
-    print(f'Done in {time()-start:.3f}s')
+    # Stitch together images to make the movie
+    w,h = content_pils[0].size
+    os.system('ffmpeg -r ' + str(args.animation_fps) + ' -f image2 -i ' + args.output \
+        + '/strotss_%d.png -s ' + str(w) + 'x' + str(h) + ' -c:v libx264 -pix_fmt yuv420p ' + args.output \
+        + '/strotss.mp4 -q:v 0 -q:a 0')
+    os.system('ffmpeg -r ' + str(args.animation_fps) + ' -f image2 -i ' + args.output \
+        + '/original_%d.png -s ' + str(w) + 'x' + str(h) + ' -c:v libx264 -pix_fmt yuv420p ' + args.output \
+        + '/original.mp4 -q:v 0 -q:a 0')

@@ -13,6 +13,6 @@ python strotss.py <content> <style> [--weight 1.0] [--output strotss_animation] 
 
 <p align="center">
   <img src="original.gif" width="350" title="Original">
-  <img src="style.jpg" width="350" alt="Style Image">
+  <img src="style.jpg" height="200" alt="Style Image">
   <img src="styled.gif" width="350" alt="Stylized Video">
 </p>

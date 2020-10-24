@@ -471,6 +471,7 @@ if __name__ == "__main__":
 
     for content_pil in content_pils:
         start = time()
+        np.random.seed(0) # Re-seed so each frame is stylized more similarly
         content_pil.save(os.path.join(args.output, 'original_' + str(img_id) + '.png'))
         result = strotss(pil_resize_long_edge_to(content_pil, args.resize_to),
                          pil_resize_long_edge_to(style_pil, args.resize_to),
